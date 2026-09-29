@@ -1,0 +1,181 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * QRIS Static → Dynamic Converter — CLI
+ *
+ * Mode interaktif:
+ *   php bin/qris
+ *
+ * Mode langsung (non-interaktif):
+ *   php bin/qris convert "<QRIS>" 25000
+ *   php bin/qris convert "<QRIS>" 25000 --fee-fixed=1000
+ *   php bin/qris convert "<QRIS>" 25000 --fee-percent=2.5
+ *   php bin/qris parse "<QRIS>"      (output JSON)
+ *   php bin/qris validate "<QRIS>"
+ */
+
+$autoloaders = [
+    __DIR__ . '/../vendor/autoload.php',     // dijalankan dari repo ini
+    __DIR__ . '/../../../autoload.php',      // dipasang sebagai dependensi composer
+    __DIR__ . '/../autoload.php',            // tanpa composer
+];
+foreach ($autoloaders as $file) {
+    if (is_file($file)) {
+        require $file;
+        break;
+    }
+}
+
+use QrisDinamis\Qris;
+
+function ask(string $q): string
+{
+    echo $q;
+    $line = fgets(STDIN);
+    return $line === false ? '' : trim($line);
+}
+
+function printErrors(array $errors): void
+{
+    fwrite(STDERR, "\n[✗] Invalid QRIS:\n");
+    foreach ($errors as $e) {
+        fwrite(STDERR, "    - {$e}\n");
+    }
+}
+
+function banner(): void
+{
+    echo "\n╔══════════════════════════════════════════════╗\n";
+    echo "║   QRIS Static → Dynamic Converter v2.0       ║\n";
+    echo "║   PHP port of verssache/qris-dinamis         ║\n";
+    echo "╚══════════════════════════════════════════════╝\n\n";
+}
+
+function interactive(): int
+{
+    banner();
+
+    $qris = ask('[?] Input QRIS string: ');
+    $validation = Qris::validate($qris);
+    if (!$validation['valid']) {
+        printErrors($validation['errors']);
+        return 1;
+    }
+
+    $parsed = Qris::parse($qris);
+
+    echo "\n[✓] QRIS Parsed:\n";
+    echo "    Merchant : {$parsed->merchantName}\n";
+    echo "    City     : {$parsed->merchantCity}\n";
+    echo "    Method   : {$parsed->method}\n";
+    echo "    Currency : {$parsed->currencyLabel()}\n";
+
+    if ($parsed->isDynamic()) {
+        echo '    Amount   : ' . ($parsed->amount ?? '-') . "\n";
+        echo "\n[!] This QRIS is already dynamic.\n";
+        return 0;
+    }
+
+    $amountStr = ask("\n[?] Input nominal (Rupiah): ");
+    if (!ctype_digit($amountStr) || (int) $amountStr <= 0) {
+        fwrite(STDERR, "[✗] Invalid amount.\n");
+        return 1;
+    }
+    $amount = (int) $amountStr;
+
+    $feeType = null;
+    $feeValue = null;
+
+    if (strtolower(ask('[?] Add service fee? (y/n): ')) === 'y') {
+        $t = strtolower(ask('[?] Fixed or Percentage? (f/p): '));
+        if ($t === 'f') {
+            $feeType = 'fixed';
+            $feeValue = (float) ask('[?] Fee amount (Rupiah): ');
+        } elseif ($t === 'p') {
+            $feeType = 'percentage';
+            $feeValue = (float) ask('[?] Fee percentage: ');
+        }
+    }
+
+    $result = Qris::convert($qris, $amount, $feeType, $feeValue);
+
+    echo "\n╔══════════════════════════════════════════════╗\n";
+    echo "║   Result                                     ║\n";
+    echo "╚══════════════════════════════════════════════╝\n";
+    echo "\n{$result}\n\n";
+
+    return 0;
+}
+
+function direct(array $args): int
+{
+    $cmd = array_shift($args);
+    $opts = [];
+    $pos = [];
+    foreach ($args as $a) {
+        if (preg_match('/^--([a-z-]+)=(.*)$/', $a, $m)) {
+            $opts[$m[1]] = $m[2];
+        } else {
+            $pos[] = $a;
+        }
+    }
+
+    $qris = $pos[0] ?? '';
+
+    switch ($cmd) {
+        case 'validate':
+            $v = Qris::validate($qris);
+            if ($v['valid']) {
+                echo "[✓] QRIS valid\n";
+                return 0;
+            }
+            printErrors($v['errors']);
+            return 1;
+
+        case 'parse':
+            $v = Qris::validate($qris);
+            if (!$v['valid']) {
+                printErrors($v['errors']);
+                return 1;
+            }
+            echo json_encode(Qris::parse($qris), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+            return 0;
+
+        case 'convert':
+            $v = Qris::validate($qris);
+            if (!$v['valid']) {
+                printErrors($v['errors']);
+                return 1;
+            }
+            $amountStr = $pos[1] ?? '';
+            if (!ctype_digit($amountStr) || (int) $amountStr <= 0) {
+                fwrite(STDERR, "[✗] Invalid amount.\n");
+                return 1;
+            }
+            $feeType = null;
+            $feeValue = null;
+            if (isset($opts['fee-fixed'])) {
+                $feeType = 'fixed';
+                $feeValue = (float) $opts['fee-fixed'];
+            } elseif (isset($opts['fee-percent'])) {
+                $feeType = 'percentage';
+                $feeValue = (float) $opts['fee-percent'];
+            }
+            echo Qris::convert($qris, (int) $amountStr, $feeType, $feeValue) . "\n";
+            return 0;
+
+        default:
+            fwrite(STDERR, "Usage:\n"
+                . "  qris                                   (interaktif)\n"
+                . "  qris convert <QRIS> <nominal> [--fee-fixed=N | --fee-percent=N]\n"
+                . "  qris parse <QRIS>\n"
+                . "  qris validate <QRIS>\n");
+            return 1;
+    }
+}
+
+$args = array_slice($argv, 1);
+exit(count($args) === 0 ? interactive() : direct($args));

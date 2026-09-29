@@ -1,0 +1,11 @@
+# File/folder ini tidak ikut terunduh saat orang menjalankan `composer require`
+/.github            export-ignore
+/examples           export-ignore
+/tests              export-ignore
+/.gitattributes     export-ignore
+/.gitignore         export-ignore
+/phpunit.xml.dist   export-ignore
+/PUBLISHING.md      export-ignore
+
+* text=auto eol=lf
+*.js linguist-vendored

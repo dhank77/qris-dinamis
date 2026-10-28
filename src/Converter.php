@@ -25,9 +25,10 @@ final class Converter
     private const MANAGED_TAGS = ['54', '55', '56', '57', '63'];
 
     /**
-     * @param int|float        $amount   Nominal transaksi (Rupiah)
-     * @param string|null      $feeType  'fixed' | 'percentage' | null
-     * @param int|float|null   $feeValue Nilai fee (Rupiah atau persen)
+     * @param int|float        $amount     Nominal transaksi (Rupiah)
+     * @param string|null      $feeType    'fixed' | 'percentage' | null
+     * @param int|float|null   $feeValue   Nilai fee (Rupiah atau persen)
+     * @param bool             $keepStatic Jika true, Tag 01 tetap statis ('11') dan tidak diubah ke '12'
      *
      * Catatan: method ini tidak memvalidasi QRIS. Gunakan Qris::convert()
      * jika ingin validasi otomatis.
@@ -39,6 +40,7 @@ final class Converter
         int|float $amount,
         ?string $feeType = null,
         int|float|null $feeValue = null,
+        bool $keepStatic = false,
     ): string {
         if ($amount <= 0) {
             throw new InvalidQrisException('Amount must be greater than 0');
@@ -60,8 +62,12 @@ final class Converter
             }
 
             if ($el->tag === '01') {
-                // statis → dinamis
-                $result[] = Tlv::make('01', '12', 'Point of Initiation Method');
+                if ($keepStatic) {
+                    $result[] = $el;
+                } else {
+                    // statis → dinamis
+                    $result[] = Tlv::make('01', '12', 'Point of Initiation Method');
+                }
                 continue;
             }
 

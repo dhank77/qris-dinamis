@@ -502,7 +502,7 @@ $qris  = Qris::convert(getenv('QRIS_STATIC'), $total);
 
 | Method | Return | Keterangan |
 |---|---|---|
-| `convert(string $qris, int\|float $amount, ?string $feeType = null, int\|float\|null $feeValue = null)` | `string` | Validasi lalu konversi ke QRIS dinamis. Melempar `InvalidQrisException`. |
+| `convert(string $qris, int\|float $amount, ?string $feeType = null, int\|float\|null $feeValue = null, bool $keepStatic = false)` | `string` | Validasi lalu konversi. Melempar `InvalidQrisException`. Set `keepStatic: true` jika ingin mempertahankan Tag 01 tetap '11' (berguna untuk e-wallet seperti ShopeePay agar tidak error kedaluwarsa). |
 | `parse(string $qris)` | `QrisData` | Validasi lalu parse. Melempar `InvalidQrisException`. |
 | `validate(string $qris)` | `array{valid: bool, errors: string[]}` | Validasi tanpa exception. |
 | `isValid(string $qris)` | `bool` | Singkatan dari `validate()['valid']`. |

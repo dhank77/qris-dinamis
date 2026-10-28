@@ -158,6 +158,19 @@ final class QrisTest extends TestCase
         self::assertSame('Warung Sayur', $data->merchantName);
     }
 
+    public function testConvertedQrisKeepStatic(): void
+    {
+        $converted = Qris::convert(self::STATIC_QRIS, 50000, keepStatic: true);
+        $data = Qris::parse($converted);
+
+        self::assertTrue(Qris::isValid($converted));
+        self::assertTrue($data->isStatic());
+        self::assertFalse($data->isDynamic());
+        self::assertSame('50000', $data->amount);
+        self::assertSame(50000.0, $data->amountValue());
+        self::assertSame('Warung Sayur', $data->merchantName);
+    }
+
     public function testReconvertReplacesAmountAndFee(): void
     {
         $first = Qris::convert(self::STATIC_QRIS, 7000, Qris::FEE_PERCENTAGE, 3);

@@ -50,9 +50,10 @@ final class Qris
     /**
      * Ubah QRIS statis (atau dinamis) menjadi QRIS dinamis dengan nominal tertentu.
      *
-     * @param int|float      $amount   Nominal transaksi dalam Rupiah, > 0
-     * @param string|null    $feeType  Qris::FEE_FIXED | Qris::FEE_PERCENTAGE | null
-     * @param int|float|null $feeValue Rupiah (fixed) atau persen (percentage)
+     * @param int|float      $amount     Nominal transaksi dalam Rupiah, > 0
+     * @param string|null    $feeType    Qris::FEE_FIXED | Qris::FEE_PERCENTAGE | null
+     * @param int|float|null $feeValue   Rupiah (fixed) atau persen (percentage)
+     * @param bool           $keepStatic Jika true, Tag 01 tetap statis ('11') dan tidak diubah ke '12'
      *
      * @throws InvalidQrisException jika QRIS atau parameter tidak valid
      */
@@ -61,9 +62,10 @@ final class Qris
         int|float $amount,
         ?string $feeType = null,
         int|float|null $feeValue = null,
+        bool $keepStatic = false,
     ): string {
         self::assertValid($qris);
-        return Converter::convert($qris, $amount, $feeType, $feeValue);
+        return Converter::convert($qris, $amount, $feeType, $feeValue, $keepStatic);
     }
 
     /**
